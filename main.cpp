@@ -34,7 +34,7 @@ float* triangles;
 unsigned int length;
 
 void renderTriangle(int num){
-	glColor3f(0,1,0);
+	glColor3f(0.8,0,0.8);
 	glBegin(GL_LINE_LOOP);
 	for (int i =0;i<oneLen/2;i++){
 		glVertex2d(triangles[num*oneLen + i*2],triangles[num*oneLen+i*2+ 1]);
