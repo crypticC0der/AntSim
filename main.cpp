@@ -35,13 +35,12 @@ float* triangles;
 unsigned int length;
 
 void renderTriangle(int num){
-	for(int i =0;i<3;i++){
-		glColor3f(0,1,0);
-		glBegin(GL_LINES);
-		glVertex2d(triangles[num*6 + i*2],triangles[num*6 + i*2 + 1]);
-		glVertex2d(triangles[num*6 + ((i+1)%3)*2],triangles[num*6 + ((i+1)%3)*2 + 1]);
-		glEnd();
-	}
+	glColor3f(0,1,0);
+	glBegin(GL_LINE_LOOP);
+	glVertex2d(triangles[num*6],triangles[num*6+ 1]);
+	glVertex2d(triangles[num*6+2],triangles[num*6+ 3]);
+	glVertex2d(triangles[num*6+4],triangles[num*6+ 5]);
+	glEnd();
 }
 
 void disInit(){
