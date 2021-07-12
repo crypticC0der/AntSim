@@ -1,3 +1,4 @@
+#include <GL/gl.h>
 #include <iostream>
 #include <GL/glut.h>
 #include <time.h> 
@@ -31,7 +32,7 @@ void nextGenerationSquare(int x1, int y1,float* rgb)
 
 typedef unsigned int uint;
 
-float colors[6][3] = {{.1,.1,.1},{0,1,0} ,{0,0,1} ,{1,0,0} ,{0,0,0},{.9,.1,.6}};
+float colors[7][3] = {{.1,.1,.1},{0,1,0} ,{0,0,1} ,{0,0,0} ,{1,0,0},{.9,.1,.6},{.95,.8,0}};
 int dirs[8][2]={{1, 0}, {1, 1}, {0, 1}, {-1, 1}, {-1, 0}, {-1, -1}, {0, -1}, {1, -1}};
 
 const uint HEIGHT=100;
@@ -49,52 +50,107 @@ char* state;
 //0 -> phermones leading to food
 float* attractions[2];
 
+float randFloat(){
+	return rand() / (float)(RAND_MAX);
+}
+
 class Ant{
 	public:
+		const float independance=0.0001;
 		uint position;
 		char direction;
 		bool gathering=true;
 		float pheramone=1;
+		char prevState;
 	
 		void init(uint start){
 			position = start;
-			direction = rand()*8;
+			prevState=state[position];
+			direction = rand()%8;
+		}
+
+		void debug(){
+			cout << "pos:"<<endl<<"\tx: " << position%LENGTH<<endl<<"\ty: " << position/LENGTH<<endl;
+			cout << "direction: " << (int)direction<<endl;
+			cout << "gathering: " << gathering<<endl;
+			cout << "pheremone: " << pheramone<<endl;
+			cout << "prevState: " << (int)prevState<<endl;
 		}
 
 		void Move(){
+			//cout << 1<<endl;
+			//debug();
 			attractions[(int)(gathering)][position]+=pheramone/5;
+			pheramone-=1/(float)100;
+			if(pheramone<0){
+				pheramone=0;
+				gathering=false;
+			}
+			state[position]=prevState;
 			position+=dirs[direction][0]*LENGTH + dirs[direction][1];
+			position+=LENGTH*HEIGHT;
+			position%=LENGTH*HEIGHT;
+			prevState=state[position];
+			//cout << 2<<endl;
 			if(position<0||position>=HEIGHT*LENGTH){
 				position-=dirs[direction][0]*LENGTH + dirs[direction][1];
 				direction+=4;
 			}
-			if(state[position]==3||state[position]==4){
+			if(state[position]==3){
 				position-=dirs[direction][0]*LENGTH + dirs[direction][1];
 				direction+=4;
 			}
 			if((gathering&&state[position]==2)||(!gathering&&state[position]==1)){
 				gathering=!gathering;
+				pheramone=state[position];
 			}
+			//state[position]=4;
 			//handle direction changing			
+			float total=0;
+			for(int i=-1;i<=1;i++){
+				int p = position + dirs[(i+direction)%8][0]*LENGTH + dirs[(i+direction)%8][1];	
+				if(p>=0 && p<LENGTH*HEIGHT){
+					total+=attractions[(int)(!gathering)][p]+.01;
+				}
+			}
+			float randVal=randFloat()*total;
+			for(int i=-1;i<=1;i++){
+				int p = position + dirs[(i+direction)%8][0]*LENGTH + dirs[(i+direction)%8][1];	
+				if(p>=0 && p<LENGTH*HEIGHT){
+					randVal-=attractions[(int)(!gathering)][p]+0.01;
+				}
+				if(randVal<=0){
+					direction+=i;
+					break;
+				}
+			}
+			direction+=8;
+			direction %=8;
 		}
 
 };
 
 Ant* ants;
+const int antcount=100;
 
 void draw(){
 	char pState=state[0];
 	float yd = ((float)(2))/HEIGHT;
 	float xd = ((float)(2))/LENGTH;
 	float* gradcol=colors[5];
+	float* oGradcol=colors[6];
 	for(int i=0;i<HEIGHT;i++){
 		for(int j=0;j<LENGTH;j++){
-			float scalar = attractions[0][i*LENGTH+j]/10;
-			if(scalar>1){scalar=1;}
-			float nscalar=1-scalar;
-			glColor3f((0.1*nscalar) + scalar*gradcol[0],
-					(0.1*nscalar) + scalar*gradcol[1],
-					(0.1*nscalar) + scalar*gradcol[2]);
+			float scalar = attractions[0][i*LENGTH+j]/20;
+			float otherScalar = attractions[1][i*LENGTH+j]/20; 
+			if (scalar+otherScalar>1){
+				scalar/=scalar+otherScalar;
+				otherScalar/=scalar+otherScalar;
+			}
+			float nscalar=1-(scalar+otherScalar);
+			glColor3f((0.1*nscalar) + scalar*gradcol[0] + otherScalar*oGradcol[0],
+					(0.1*nscalar) + scalar*gradcol[1]+ otherScalar*oGradcol[1],
+					(0.1*nscalar) + scalar*gradcol[2]+ otherScalar*oGradcol[2]);
 			glBegin(GL_QUADS);
 			float x = (float)(j*2 );
 			x/=LENGTH;
@@ -138,6 +194,24 @@ void draw(){
 	}
 	glEnd();
 
+	for (int i =0;i<antcount;i++){
+		float x = ants[i].position%LENGTH;
+		float y = ants[i].position/LENGTH;
+		x*=2;
+		x/=LENGTH;
+		x-=1;
+		y*=2;
+		y/=LENGTH;
+		y-=1;
+		glColor3f(colors[4][0],colors[4][1],colors[4][1]);
+		glBegin(GL_QUADS);
+		glVertex2d(x,y);
+		glVertex2d(x,y+yd);
+		glVertex2d(x+xd,y+yd);
+		glVertex2d(x+xd,y);
+		glEnd();
+	}
+
 }
 
 
@@ -149,6 +223,16 @@ void disInit(){
 }
 
 void run(){
+	for (int i =0;i<antcount;i++){
+		ants[i].Move();
+	}
+	for(int j=0;j<2;j++){
+		for(int i=0;i<HEIGHT*LENGTH;i++){
+			if(attractions[j][i]>0){
+				attractions[j][i]-=0.0001;
+			}
+		}
+	}
 	draw();
 	glFlush();
 }
@@ -186,10 +270,15 @@ int main(int argc, char** argv) {
 	state = new char[HEIGHT*LENGTH];
 	float* fAttr= new float[HEIGHT*LENGTH];
 	float* hAttr= new float[HEIGHT*LENGTH];
-	ants = new Ant[HEIGHT*LENGTH];
+	attractions[0]=hAttr;
+	attractions[1]=fAttr;
+	ants = new Ant[antcount];
 	float fr[] = {3,7};
 	uint fp[] = {0,7431};
 	initializeMap(5,HEIGHT*LENGTH/2 + LENGTH/2,fr,fp,2);
+	for (int i=0;i<antcount;i++){
+		ants[i].init(HEIGHT*LENGTH/2 + LENGTH/2);
+	}
 	
 	srand (time(NULL));
 	glutInit(&argc, argv);		// Initialize GLUT
