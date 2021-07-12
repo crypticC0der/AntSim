@@ -32,6 +32,7 @@ void nextGenerationSquare(int x1, int y1,float* rgb)
 typedef unsigned int uint;
 
 float colors[6][3] = {{.1,.1,.1},{0,1,0} ,{0,0,1} ,{1,0,0} ,{0,0,0},{.9,.1,.6}};
+int dirs[8][2]={{1, 0}, {1, 1}, {0, 1}, {-1, 1}, {-1, 0}, {-1, -1}, {0, -1}, {1, -1}};
 
 const uint HEIGHT=100;
 const uint LENGTH=100;
@@ -44,8 +45,42 @@ const uint LENGTH=100;
  *	4: ant;
 */
 char* state;
-float* attraction;
-uint* antPos; 
+//1 -> phermones leading home
+//0 -> phermones leading to food
+float* attractions[2];
+
+class Ant{
+	public:
+		uint position;
+		char direction;
+		bool gathering=true;
+		float pheramone=1;
+	
+		void init(uint start){
+			position = start;
+			direction = rand()*8;
+		}
+
+		void Move(){
+			attractions[(int)(gathering)][position]+=pheramone/5;
+			position+=dirs[direction][0]*LENGTH + dirs[direction][1];
+			if(position<0||position>=HEIGHT*LENGTH){
+				position-=dirs[direction][0]*LENGTH + dirs[direction][1];
+				direction+=4;
+			}
+			if(state[position]==3||state[position]==4){
+				position-=dirs[direction][0]*LENGTH + dirs[direction][1];
+				direction+=4;
+			}
+			if((gathering&&state[position]==2)||(!gathering&&state[position]==1)){
+				gathering=!gathering;
+			}
+			//handle direction changing			
+		}
+
+};
+
+Ant* ants;
 
 void draw(){
 	char pState=state[0];
@@ -54,7 +89,7 @@ void draw(){
 	float* gradcol=colors[5];
 	for(int i=0;i<HEIGHT;i++){
 		for(int j=0;j<LENGTH;j++){
-			float scalar = attraction[i*LENGTH+j]/5;
+			float scalar = attractions[0][i*LENGTH+j]/10;
 			if(scalar>1){scalar=1;}
 			float nscalar=1-scalar;
 			glColor3f((0.1*nscalar) + scalar*gradcol[0],
@@ -114,7 +149,6 @@ void disInit(){
 }
 
 void run(){
-	attraction[1720]+=0.001f;
 	draw();
 	glFlush();
 }
@@ -150,8 +184,9 @@ void initializeMap(float nestRad, uint nestPos, float* foodRads,uint* foodPos, u
 int main(int argc, char** argv) {
 
 	state = new char[HEIGHT*LENGTH];
-	attraction = new float[HEIGHT*LENGTH];
-	antPos = new uint[HEIGHT*LENGTH];
+	float* fAttr= new float[HEIGHT*LENGTH];
+	float* hAttr= new float[HEIGHT*LENGTH];
+	ants = new Ant[HEIGHT*LENGTH];
 	float fr[] = {3,7};
 	uint fp[] = {0,7431};
 	initializeMap(5,HEIGHT*LENGTH/2 + LENGTH/2,fr,fp,2);
